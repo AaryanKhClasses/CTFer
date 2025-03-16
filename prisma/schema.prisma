@@ -10,7 +10,11 @@ datasource db {
 model CTF {
     id          String      @id @default(uuid())
     name        String
+    running     Boolean     @default(false)
+
     users       User[]
+    teams       Team[]
+    challenges  Challenge[]
 
     createdAt   DateTime    @default(now())
     updatedAt   DateTime    @updatedAt
@@ -22,10 +26,41 @@ model User {
     email       String
     password    String
     ctfId       String
+    teamId      String?     @default("")
+    teamName    String?     @default("")
     type        String      @default("participant")
+    score       Int         @default(0)
 
     ctf         CTF         @relation(fields: [ctfId], references: [id])
     
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+}
+
+model Team {
+    id          String      @id @default(uuid())
+    name        String
+    ctfId       String
+    netScore    Int         @default(0)
+    userIDs     String[]
+
+    ctf         CTF         @relation(fields: [ctfId], references: [id])
+
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+}
+
+model Challenge {
+    id          String      @id @default(uuid())
+    name        String
+    description String
+    category    String
+    points      Int
+    flag        String
+    ctfId       String
+
+    ctf         CTF         @relation(fields: [ctfId], references: [id])
+
     createdAt   DateTime    @default(now())
     updatedAt   DateTime    @updatedAt
 }

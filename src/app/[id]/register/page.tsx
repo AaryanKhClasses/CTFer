@@ -1,4 +1,4 @@
-import CTFRegisterForm from "@/components/CTFRegisterForm"
+import { CTFRegisterForm } from "@/components/UserForms"
 
 export default async function CTFRegisterPage({ params }: { params: Promise<{id: string}> }) {
     const ctfId = (await params).id.split("/")[0]
