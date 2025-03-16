@@ -1,7 +1,8 @@
 "use client"
 
-import { Chip } from "@heroui/chip"
 import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@heroui/table"
+import { DeleteChallenge, EditChallenge, ToggleChallenge } from "./ChallengeActions"
+import { Chip } from "@heroui/chip"
 
 type UserProps = {
     id: string
@@ -16,6 +17,17 @@ type TeamProps = {
     id: string
     name: string
     netScore: number
+}
+
+type ChallengeProps = {
+    id: string
+    name: string
+    points: number
+    flag: string
+    category: string
+    ctfId: string
+    enabled: boolean
+    description: string
 }
 
 export function AdminUserTable({ users }: { users: UserProps[] }) {
@@ -53,6 +65,33 @@ export function AdminTeamTable({ teams }: { teams: TeamProps[] }) {
                 <TableRow key={team.id}>
                     <TableCell className="flex flex-col">{team.name.toUpperCase()}</TableCell>
                     <TableCell>{team.netScore}</TableCell>
+                </TableRow>
+            ))}
+        </TableBody>
+    </Table>
+}
+
+export function AdminChallengeTable({ challenges }: { challenges: ChallengeProps[] }) {
+    return <Table aria-label="Admin Challenge Table">
+        <TableHeader>
+            <TableColumn>Challenge</TableColumn>
+            <TableColumn>Points</TableColumn>
+            <TableColumn>Category</TableColumn>
+            <TableColumn>Flag</TableColumn>
+            <TableColumn>Actions</TableColumn>
+        </TableHeader>
+        <TableBody emptyContent={"No challenges found"}>
+            {challenges.map(challenge => (
+                <TableRow key={challenge.id}>
+                    <TableCell className="flex flex-col">{challenge.name.toUpperCase()}</TableCell>
+                    <TableCell>{challenge.points}</TableCell>
+                    <TableCell>{challenge.category}</TableCell>
+                    <TableCell>{challenge.flag}</TableCell>
+                    <TableCell className="flex flex-row gap-3">
+                        <EditChallenge data={challenge} />
+                        <ToggleChallenge id={challenge.id} ctfId={challenge.ctfId} enabled={challenge.enabled} />
+                        <DeleteChallenge id={challenge.id} ctfId={challenge.ctfId} />
+                    </TableCell>
                 </TableRow>
             ))}
         </TableBody>

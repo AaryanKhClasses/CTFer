@@ -1,5 +1,5 @@
-import db from "@/lib/db"
 import { notFound } from "next/navigation"
+import db from "@/lib/db"
 
 export default async function CTFHomePage({ params }: { params: Promise<{id: string}> }) {
     const id = (await params).id

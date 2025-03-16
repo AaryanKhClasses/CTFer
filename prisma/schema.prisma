@@ -57,6 +57,7 @@ model Challenge {
     category    String
     points      Int
     flag        String
+    enabled     Boolean     @default(true)
     ctfId       String
 
     ctf         CTF         @relation(fields: [ctfId], references: [id])

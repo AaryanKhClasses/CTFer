@@ -1,8 +1,8 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import db from "./db"
 import { cookies } from "next/headers"
+import db from "./db"
 
 type RegisterUserProps = {
     name: string

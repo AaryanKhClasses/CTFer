@@ -1,7 +1,7 @@
+import { notFound } from "next/navigation"
+import { cookies } from "next/headers"
 import Nav from "@/components/Nav"
 import db from "@/lib/db"
-import { cookies } from "next/headers"
-import { notFound } from "next/navigation"
 
 export default async function CTFLayout({ children, params }: Readonly<{ children: React.ReactNode; params: Promise<{id: string}> }>) {
     const id = (await params).id.split('/')[0]
