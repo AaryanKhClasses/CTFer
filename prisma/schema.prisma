@@ -8,60 +8,64 @@ datasource db {
 }
 
 model CTF {
-    id          String      @id @default(uuid())
-    name        String
-    running     Boolean     @default(false)
+    id              String      @id @default(uuid())
+    name            String
+    running         Boolean     @default(false)
+    // maxUserTeam Int
 
-    users       User[]
-    teams       Team[]
-    challenges  Challenge[]
+    users           User[]
+    teams           Team[]
+    challenges      Challenge[]
 
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
 }
 
 model User {
-    id          String      @id @default(uuid())
-    name        String
-    email       String
-    password    String
-    ctfId       String
-    teamId      String?     @default("")
-    teamName    String?     @default("")
-    type        String      @default("participant")
-    score       Int         @default(0)
+    id              String      @id @default(uuid())
+    name            String
+    email           String
+    password        String
+    ctfId           String
+    teamId          String?     @default("")
+    teamName        String?     @default("")
+    type            String      @default("participant")
+    score           Int         @default(0)
+    challengeIDs    String[]
 
-    ctf         CTF         @relation(fields: [ctfId], references: [id])
+    ctf             CTF         @relation(fields: [ctfId], references: [id])
     
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
 }
 
 model Team {
-    id          String      @id @default(uuid())
-    name        String
-    ctfId       String
-    netScore    Int         @default(0)
-    userIDs     String[]
+    id              String      @id @default(uuid())
+    name            String
+    ctfId           String
+    netScore        Int         @default(0)
+    userIDs         String[]
+    challengeIDs    String[]
 
-    ctf         CTF         @relation(fields: [ctfId], references: [id])
+    ctf             CTF         @relation(fields: [ctfId], references: [id])
 
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
 }
 
 model Challenge {
-    id          String      @id @default(uuid())
-    name        String
-    description String
-    category    String
-    points      Int
-    flag        String
-    enabled     Boolean     @default(true)
-    ctfId       String
+    id              String      @id @default(uuid())
+    name            String
+    description     String
+    category        String
+    points          Int
+    flag            String
+    enabled         Boolean     @default(true)
+    ctfId           String
+    teamIDs         String[]
 
-    ctf         CTF         @relation(fields: [ctfId], references: [id])
+    ctf             CTF         @relation(fields: [ctfId], references: [id])
 
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
 }

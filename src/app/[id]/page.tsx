@@ -6,6 +6,6 @@ export default async function CTFHomePage({ params }: { params: Promise<{id: str
     const ctf = await db.cTF.findUnique({ where: { id } })
     if(!ctf) return notFound()
     return <>
-        <h1><b className="green">{ctf.name}</b> Home Page</h1>
+        <h1 className="text-[2rem] text-center font-bold my-5">./<b className="green">home</b></h1>
     </>
 }
