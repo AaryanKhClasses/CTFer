@@ -1,35 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 :root {
-    --background: #212529;
-    --foreground: #dee2e3;
-    --green: #b5e853;
-    --pink: #e685b5;
+    --background: #161717;
+    --background-light: #1d1f1f;
+    --foreground: #fafaed;
 }
 
 @theme inline {
     --color-background: var(--background);
+    --color-background-light: var(--background-light);
     --color-foreground: var(--foreground);
-    --font-sans: var(--font-geist-sans);
-    --font-mono: var(--font-geist-mono);
 }
 
 body {
     background: var(--background);
     color: var(--foreground);
-    font-family: Arial, Helvetica, sans-serif;
 }
-
-.green {
-    color: var(--green);
-}
-
-.pink {
-    color: var(--pink);
-}
-
-/* * {
-    outline: red 2px dashed;
-} */

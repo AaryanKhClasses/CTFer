@@ -1,31 +1,27 @@
-import { Geist, Geist_Mono } from "next/font/google"
-import { Provider } from "./providers"
-import type { Metadata } from "next"
-import "./globals.css"
+import Sidebar from '@/components/Sidebar'
+import localFont from 'next/font/local'
+import { Providers } from './providers'
+import type { Metadata } from 'next'
+import './globals.css'
 
-const geistSans = Geist({
-    variable: "--font-geist-sans",
-    subsets: ["latin"],
-})
-
-const geistMono = Geist_Mono({
-    variable: "--font-geist-mono",
-    subsets: ["latin"],
+const poppins = localFont({
+    src: '../../public/Poppins-Regular.ttf',
 })
 
 export const metadata: Metadata = {
-    title: "CTFed",
-    description: "A simple CTF creating and hosting platform made using NextJS.",
+    title: 'CTFer',
+    description: 'A simple CTF platform.',
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-    return <html lang="en" className="dark">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-            <Provider>
-                <div className="my-6 px-3 flex flex-col min-h-screen">
-                    <div className="flex-grow">{children}</div>
-                </div>
-            </Provider>
+  return <html lang='en' className='dark'>
+        <body className={`${poppins.className} antialiased min-h-screen flex flex-col`}>
+            <Providers>
+                <main className='flex-1 flex flex-row'>
+                    <Sidebar />
+                    <div className='flex-1 ml-20'>{children}</div>
+                </main>
+            </Providers>
         </body>
     </html>
 }

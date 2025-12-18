@@ -1,72 +1,161 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-}
-
-model CTF {
-    id              String      @id @default(uuid())
-    name            String
-    description     String
-    running         Boolean     @default(false)
-    // maxUserTeam Int
-
-    users           User[]
-    teams           Team[]
-    challenges      Challenge[]
-
-    createdAt       DateTime    @default(now())
-    updatedAt       DateTime    @updatedAt
+  provider = "postgresql"
 }
 
 model User {
-    id              String      @id @default(uuid())
-    name            String
-    email           String
-    password        String
-    ctfId           String
-    teamId          String?     @default("")
-    teamName        String?     @default("")
-    type            String      @default("participant")
-    score           Int         @default(0)
-    challengeIDs    String[]
-
-    ctf             CTF         @relation(fields: [ctfId], references: [id])
-    
-    createdAt       DateTime    @default(now())
-    updatedAt       DateTime    @updatedAt
+  id            Int          @id @default(autoincrement())
+  email         String       @unique
+  username      String       @unique
+  password      String
+  role          Role         @default(PLAYER)
+  score         Int          @default(0)
+  active        Boolean      @default(true)
+  hidden        Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  authVersion   Int          @default(0)
+  teamMember    TeamMember?
+  authoredChals Challenge[]  @relation("AuthorChallenges")
+  hintUnlocks   HintUnlock[]
+  solves        Solve[]
+  submissions   Submission[]
 }
 
 model Team {
-    id              String      @id @default(uuid())
-    name            String
-    ctfId           String
-    netScore        Int         @default(0)
-    userIDs         String[]
-    challengeIDs    String[]
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  password    String?
+  score       Int          @default(0)
+  hidden      Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  hintUnlocks HintUnlock[]
+  solves      Solve[]
+  submissions Submission[]
+  members     TeamMember[]
+}
 
-    ctf             CTF         @relation(fields: [ctfId], references: [id])
+model TeamMember {
+  id       Int      @id @default(autoincrement())
+  userId   Int      @unique
+  teamId   Int
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    createdAt       DateTime    @default(now())
-    updatedAt       DateTime    @updatedAt
+  @@index([teamId])
 }
 
 model Challenge {
-    id              String      @id @default(uuid())
-    name            String
-    description     String
-    category        String
-    points          Int
-    flag            String
-    enabled         Boolean     @default(true)
-    ctfId           String
-    teamIDs         String[]
+  id          Int            @id @default(autoincrement())
+  title       String         @unique
+  description String
+  category    String
+  tags        String[]
+  type        String
+  points      Int
+  state       ChallengeState @default(VISIBLE)
+  authorId    Int
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  author      User           @relation("AuthorChallenges", fields: [authorId], references: [id])
+  files       File[]
+  flags       Flag[]
+  hints       Hint[]
+  solves      Solve[]
+  submissions Submission[]
+}
 
-    ctf             CTF         @relation(fields: [ctfId], references: [id])
+model Flag {
+  id          Int       @id @default(autoincrement())
+  challengeId Int
+  content     String
+  type        FlagType  @default(CASE_SENSITIVE)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+}
 
-    createdAt       DateTime    @default(now())
-    updatedAt       DateTime    @updatedAt
+model Submission {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  teamId      Int?
+  challengeId Int
+  submitted   String
+  correct     Boolean
+  submittedAt DateTime  @default(now())
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  team        Team?     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Solve {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  teamId      Int?
+  challengeId Int
+  points      Int
+  solvedAt    DateTime  @default(now())
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  team        Team?     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@unique([teamId, challengeId])
+}
+
+model Hint {
+  id          Int          @id @default(autoincrement())
+  challengeId Int
+  content     String
+  cost        Int
+  challenge   Challenge    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  unlocks     HintUnlock[]
+}
+
+model HintUnlock {
+  id         Int      @id @default(autoincrement())
+  hintId     Int
+  userId     Int
+  teamId     Int?
+  unlockedAt DateTime @default(now())
+  hint       Hint     @relation(fields: [hintId], references: [id], onDelete: Cascade)
+  team       Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([hintId, userId])
+}
+
+model File {
+  id          Int       @id @default(autoincrement())
+  challengeId Int
+  name        String
+  path        String
+  mimeType    String
+  uploadedAt  DateTime  @default(now())
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+}
+
+model Config {
+  key   String @id
+  value String
+}
+
+enum Role {
+  PLAYER
+  ADMIN
+}
+
+enum ChallengeState {
+  VISIBLE
+  HIDDEN
+  LOCKED
+}
+
+enum FlagType {
+  CASE_SENSITIVE
+  CASE_INSENSITIVE
 }

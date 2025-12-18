@@ -1,17 +1,18 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient } from '@/generated/prisma/client'
 import { withAccelerate } from '@prisma/extension-accelerate'
 
-const prismaClientSingleton = () => {
-    return new PrismaClient()
-    .$extends(withAccelerate())
+const createPrismaClient = () => new PrismaClient({
+    accelerateUrl: process.env.DATABASE_URL!,
+}).$extends(withAccelerate())
+
+type PrismaClientWithAccelerate = ReturnType<typeof createPrismaClient>
+
+const globalForPrisma = globalThis as unknown as {
+    prisma?: PrismaClientWithAccelerate
 }
 
-declare global {
-    var prisma: undefined | ReturnType<typeof prismaClientSingleton>
-}
+const prisma = globalForPrisma.prisma ?? createPrismaClient()
 
-const db = globalThis.prisma ?? prismaClientSingleton()
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
-export default db
-
-if (process.env.NODE_ENV !== "production") globalThis.prisma = db
+export default prisma

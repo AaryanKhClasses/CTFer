@@ -1,8 +1,5 @@
-import CreateCTFModal from "@/components/CreateCTFModal"
-
 export default function HomePage() {
-    return <>
-        <h1>Home Page</h1>
-        <CreateCTFModal />
-    </>
+    return <div className='flex flex-col items-center p-5'>
+        Hello
+    </div>
 }

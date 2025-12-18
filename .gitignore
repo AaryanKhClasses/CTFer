@@ -8,3 +8,5 @@ next-env.d.ts
 package-lock.json
 prisma/migrations/*
 !prisma/migrations/migration_lock.toml
+.idea/
+generated/
