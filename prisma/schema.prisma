@@ -19,11 +19,11 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   authVersion   Int          @default(0)
-  teamMember    TeamMember?
   authoredChals Challenge[]  @relation("AuthorChallenges")
   hintUnlocks   HintUnlock[]
   solves        Solve[]
   submissions   Submission[]
+  teamMember    TeamMember?
 }
 
 model Team {
@@ -142,6 +142,19 @@ model File {
 model Config {
   key   String @id
   value String
+}
+
+model Settings {
+  id                 Int       @id @default(1)
+  name               String
+  description        String?
+  teamSize           Int       @default(1)
+  startTime          DateTime?
+  endTime            DateTime?
+  logoURL            String?
+  homeMarkdown       String?
+  isRegistrationOpen Boolean   @default(true)
+  isPaused           Boolean   @default(false)
 }
 
 enum Role {

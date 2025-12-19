@@ -31,7 +31,7 @@ export default function Sidebar() {
             <Tooltip color='foreground' closeDelay={0} content='Scoreboard' placement='right'><ChartArea className='cursor-pointer' onClick={() => redirect('/scoreboard')} /></Tooltip>
             <Tooltip color='foreground' closeDelay={0} content='Challenges' placement='right'><Swords className='cursor-pointer' onClick={() => redirect('/challenges')} /></Tooltip>
             <Divider />
-            {auth?.user?.role === 'ADMIN' && <Tooltip color='foreground' closeDelay={0} content='Admin Section' placement='right'><Wrench className='cursor-pointer' onClick={() => redirect('/admin')} /></Tooltip>}
+            {auth?.user?.role === 'ADMIN' && <Tooltip color='foreground' closeDelay={0} content='Admin Section' placement='right'><Wrench className='cursor-pointer' onClick={() => redirect('/admin/users')} /></Tooltip>}
             <Tooltip color='foreground' closeDelay={0} content='Notifications' placement='right'><Bell className='cursor-pointer' onClick={() => redirect('/notifications')} /></Tooltip>
             {auth?.authenticated && <Tooltip color='foreground' closeDelay={0} content='Your Team' placement='right'><SquareUserRound className='cursor-pointer' onClick={() => redirect('/you')} /></Tooltip>}
         </div>

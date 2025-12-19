@@ -10,12 +10,14 @@ type User = {
     score: number
     hidden: boolean
     active: boolean
-    teams: string[]
+    teamID: number | null
+    teamName: string | null
     createdAt: Date
 }
 
 export default function UsersPage() {
     const [users, setUsers] = useState<User[] | null>(null)
+    const [isAdmin, setIsAdmin] = useState(false)
     const [page, setPage] = useState(1)
     const rowsPerPage = 10
     const [filter, setFilter] = useState('')
@@ -25,6 +27,12 @@ export default function UsersPage() {
         .then(res => res.json())
         .then(setUsers)
         .catch(err => console.error('Error fetching users:', err))
+
+        fetch('/api/me', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if(data.user.role === 'ADMIN') setIsAdmin(true)
+        })
     }, [])
 
     const filteredUsers = useMemo(() => {
@@ -43,7 +51,7 @@ export default function UsersPage() {
     return <div className='flex flex-col items-center p-5 h-screen'>
         <h1 className='text-4xl font-bold mb-[10vh]'>Users</h1>
         <Input type='text' label='Filter by Username' labelPlacement='outside' placeholder='Type to filter...' value={filter} onValueChange={setFilter} />
-        <Table>
+        <Table aria-label="Users Table">
             <TableHeader>
                 <TableColumn>#</TableColumn>
                 <TableColumn>User Name</TableColumn>
@@ -52,10 +60,10 @@ export default function UsersPage() {
             </TableHeader>
             <TableBody emptyContent='No users found'>
                 {items?.map(user => {
-                    return <TableRow key={user.id}>
+                    return !isAdmin && user.hidden ? <></> : <TableRow key={user.id} className={`${user.role === 'ADMIN' ? 'text-danger' : user.hidden ? 'text-success' : ''}`}>
                         <TableCell>{user.id}</TableCell>
                         <TableCell>{user.username}</TableCell>
-                        <TableCell>{user.teams ?? '-'}</TableCell>
+                        <TableCell>{user.teamName ?? '-'}</TableCell>
                         <TableCell>{user.score}</TableCell>
                     </TableRow>
                 }) ?? []}

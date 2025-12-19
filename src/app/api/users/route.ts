@@ -4,11 +4,8 @@ import { NextResponse } from 'next/server'
 export async function GET() {
     try {
         const users = await prisma.user.findMany({
-            where: { active: true, hidden: false },
-            select: { id: true, username: true, score: true, role: true, createdAt: true, active: true, hidden: true, teamMember: {
-                select: { team: { select: { id: true, name: true, score: true } } }
-            } },
-            orderBy: { id: 'asc' },
+            where: { },
+            select: { id: true, username: true, score: true, role: true, createdAt: true, active: true, hidden: true, teamMember: { select: { team: true } } },
         })
         return NextResponse.json(users.map(user => ({
             id: user.id,
@@ -18,6 +15,8 @@ export async function GET() {
             createdAt: user.createdAt,
             active: user.active,
             hidden: user.hidden,
+            teamID: user.teamMember?.team.id || null,
+            teamName: user.teamMember?.team.name || null
         })))
     } catch(err) {
         console.error(err)

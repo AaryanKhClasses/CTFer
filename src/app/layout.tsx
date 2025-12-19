@@ -13,8 +13,8 @@ export const metadata: Metadata = {
     description: 'A simple CTF platform.',
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang='en' className='dark'>
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+    return <html lang='en' className='dark'>
         <body className={`${poppins.className} antialiased min-h-screen flex flex-col`}>
             <Providers>
                 <main className='flex-1 flex flex-row'>
