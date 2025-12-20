@@ -10,7 +10,5 @@ export default async function NonSetupLayout({ children }: Readonly<{ children: 
     }
 
     if(!cachedSettingsExists) return redirect('/setup') 
-    return <html lang='en' className='dark'>
-        <body>{children}</body>
-    </html>
+    return <div>{children}</div>
 }

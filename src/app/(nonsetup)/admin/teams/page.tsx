@@ -1,7 +1,7 @@
 'use client'
 
-import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Input, Pagination, addToast } from '@heroui/react'
-import { Search } from 'lucide-react'
+import { addToast, Input, Pagination, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Tooltip } from '@heroui/react'
+import { Eye, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 type Team = {
@@ -12,9 +12,8 @@ type Team = {
     createdAt: Date
 }
 
-export default function TeamsPage() {
+export default function AdminTeamsPage() {
     const [teams, setTeams] = useState<Team[] | null>(null)
-    const [isAdmin, setIsAdmin] = useState(false)
     const [page, setPage] = useState(1)
     const rowsPerPage = 10
     const [filter, setFilter] = useState('')
@@ -33,12 +32,6 @@ export default function TeamsPage() {
                 timeout: 5000,
             })
         })
-
-        fetch('/api/me', { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => {
-            if(data.user.role === 'ADMIN') setIsAdmin(true)
-        })
     }, [])
 
     const filteredTeams = useMemo(() => {
@@ -54,21 +47,53 @@ export default function TeamsPage() {
         return filteredTeams?.slice(start, end)
     }, [page, filteredTeams])
 
+    const handleToggleTeam = (id: number) => {
+        fetch(`/api/teams/${id}`, { method: 'PATCH' })
+        .then(res => res.json())
+        .then(updatedTeam => {
+            setTeams(prevTeams => {
+                if (!prevTeams) return prevTeams
+                return prevTeams.map(team => team.id === updatedTeam.id ? updatedTeam : team)
+            })
+            addToast({
+                title: 'Toggle Team Visibility',
+                description: `Team ${updatedTeam.name} is now ${updatedTeam.hidden ? 'hidden' : 'visible'}.`,
+                color: 'success',
+                shouldShowTimeoutProgress: true,
+                timeout: 5000,
+            })
+        })
+        .catch(err => {
+            console.error(err)
+            addToast({
+                title: 'Error',
+                description: 'Failed to toggle team visibility.',
+                color: 'danger',
+                shouldShowTimeoutProgress: true,
+                timeout: 5000,
+            })
+        })
+    }
+
     return <div className='flex flex-col items-center p-5 h-screen'>
         <h1 className='text-4xl font-bold mb-[10vh]'>Teams</h1>
         <Input startContent={<Search />} type='text' label='Filter by Teamname' labelPlacement='outside' placeholder='Type to filter...' value={filter} onValueChange={setFilter} />
-        <Table aria-label="Teams Table">
+        <Table aria-label="Admin Teams Table">
             <TableHeader>
                 <TableColumn>#</TableColumn>
                 <TableColumn>Team Name</TableColumn>
                 <TableColumn>Score</TableColumn>
+                <TableColumn>Actions</TableColumn>
             </TableHeader>
             <TableBody emptyContent='No teams found'>
                 {items?.map(team => {
-                    return !isAdmin && team.hidden ? <></> : <TableRow key={team.id} className={`${team.hidden ? 'text-success' : ''}`}>
+                    return <TableRow key={team.id} className={`${team.hidden ? 'text-success' : ''}`}>
                         <TableCell>{team.id}</TableCell>
                         <TableCell>{team.name}</TableCell>
                         <TableCell>{team.score}</TableCell>
+                        <TableCell>
+                            <Tooltip color="foreground" closeDelay={0} content="Toggle Visibility"><Eye className='text-foreground cursor-pointer' onClick={() => handleToggleTeam(team.id)} /></Tooltip>
+                        </TableCell>
                     </TableRow>
                 }) ?? []}
             </TableBody>

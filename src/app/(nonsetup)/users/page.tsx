@@ -1,6 +1,7 @@
 'use client'
 
-import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Input, Pagination } from '@heroui/react'
+import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Input, Pagination, addToast } from '@heroui/react'
+import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 type User = {
@@ -26,7 +27,16 @@ export default function UsersPage() {
         fetch('/api/users')
         .then(res => res.json())
         .then(setUsers)
-        .catch(err => console.error('Error fetching users:', err))
+        .catch(err => {
+            console.error(err)
+            addToast({
+                title: 'Internal Server Error',
+                description: 'Failed to fetch users.',
+                color: 'danger',
+                shouldShowTimeoutProgress: true,
+                timeout: 5000,
+            })
+        })
 
         fetch('/api/me', { credentials: 'include' })
         .then(res => res.json())
@@ -50,7 +60,7 @@ export default function UsersPage() {
 
     return <div className='flex flex-col items-center p-5 h-screen'>
         <h1 className='text-4xl font-bold mb-[10vh]'>Users</h1>
-        <Input type='text' label='Filter by Username' labelPlacement='outside' placeholder='Type to filter...' value={filter} onValueChange={setFilter} />
+        <Input startContent={<Search />} type='text' label='Filter by Username' labelPlacement='outside' placeholder='Type to filter...' value={filter} onValueChange={setFilter} />
         <Table aria-label="Users Table">
             <TableHeader>
                 <TableColumn>#</TableColumn>
