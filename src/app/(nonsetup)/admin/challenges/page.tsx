@@ -14,7 +14,7 @@ type Challenge = {
     hidden: boolean
     flags: { content: string, type: 'CASE_INSENSITIVE' | 'CASE_SENSITIVE' }[]
     hints: { content: string, cost: number }[]
-    files: { content: string, type: 'CASE_INSENSITIVE' | 'CASE_SENSITIVE' }[]
+    files: string[]
     tags: string[]
     state: 'VISIBLE' | 'HIDDEN'
     createdAt: Date
@@ -41,7 +41,6 @@ export default function AdminChallengesPage() {
     const modal = useDisclosure()
     const flagsModal = useDisclosure()
     const hintsModal = useDisclosure()
-    const deleteModal = useDisclosure()
 
     useEffect(() => {
         fetch('/api/challenges')
@@ -263,7 +262,7 @@ export default function AdminChallengesPage() {
                 <ModalBody className='flex flex-col gap-2'>
                     {challengeFlags.map((flag, index) => (
                         <div key={index} className="flex flex-row gap-2 justify-between items-center">
-                            <Input isRequired className='w-full' type='text' label='Flag Content' labelPlacement='outside' placeholder='Enter flag content' value={flag.content} onValueChange={(value) => {
+                            <Input startContent={<LandPlot />} isRequired className='w-full' type='text' label='Flag Content' labelPlacement='outside' placeholder='Enter flag content' value={flag.content} onValueChange={(value) => {
                                 const newFlags = [...challengeFlags]
                                 newFlags[index].content = value
                                 setChallengeFlags(newFlags)
@@ -296,7 +295,7 @@ export default function AdminChallengesPage() {
                 <ModalBody className='flex flex-col gap-2'>
                     {challengeHints.map((hint, index) => (
                         <div key={index} className="flex flex-row gap-2 justify-between items-center">
-                            <Input isRequired className='w-full' type='text' label='Hint Content' labelPlacement='outside' placeholder='Enter hint content' value={hint.content} onValueChange={(value) => {
+                            <Input startContent={<Lightbulb />} isRequired className='w-full' type='text' label='Hint Content' labelPlacement='outside' placeholder='Enter hint content' value={hint.content} onValueChange={(value) => {
                                 const newHints = [...challengeHints]
                                 newHints[index].content = value
                                 setChallengeHints(newHints)

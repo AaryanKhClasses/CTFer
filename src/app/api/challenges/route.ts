@@ -2,41 +2,81 @@ import prisma from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { verifyJWT } from '@/lib/jwt'
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
-        const challenges = await prisma.challenge.findMany({
-            where: {},
-            select: {
-                id: true,
-                title: true,
-                description: true,
-                category: true,
-                points: true,
-                type: true,
-                tags: true,
-                createdAt: true,
-                state: true,
-                flags: { select: { content: true, type: true } },
-                hints: { select: { content: true, cost: true } },
-                files: { select: { name: true } },
-            },
-        })
-        return NextResponse.json(
-            challenges.map((challenge) => ({
-                id: challenge.id,
-                title: challenge.title,
-                description: challenge.description,
-                category: challenge.category,
-                points: challenge.points,
-                type: challenge.type,
-                tags: challenge.tags,
-                flags: challenge.flags.map((f) => ({ content: f.content, type: f.type })),
-                hints: challenge.hints.map((h) => ({ content: h.content, cost: h.cost })),
-                files: challenge.files.map((f) => ({ content: f.name, type: 'CASE_INSENSITIVE' as const })),
-                createdAt: challenge.createdAt,
-                state: challenge.state,
-            }))
-        )
+        const cookieHeader = request.headers.get('cookie')
+        const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
+        if (!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        let payload
+        try {
+            payload = verifyJWT(tokenMatch[1])
+        } catch {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        if(payload.role === 'ADMIN') {
+            const challenges = await prisma.challenge.findMany({
+                where: {},
+                select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    category: true,
+                    points: true,
+                    type: true,
+                    tags: true,
+                    createdAt: true,
+                    state: true,
+                    flags: { select: { content: true, type: true } },
+                    hints: { select: { content: true, cost: true } },
+                    files: { select: { name: true } },
+                },
+            })
+            return NextResponse.json(
+                challenges.map((challenge) => ({
+                    id: challenge.id,
+                    title: challenge.title,
+                    description: challenge.description,
+                    category: challenge.category,
+                    points: challenge.points,
+                    type: challenge.type,
+                    tags: challenge.tags,
+                    flags: challenge.flags.map((f) => ({ content: f.content, type: f.type })),
+                    hints: challenge.hints.map((h) => ({ content: h.content, cost: h.cost })),
+                    files: [],
+                    createdAt: challenge.createdAt,
+                    state: challenge.state,
+                }))
+            )
+        } else {
+            const challenges = await prisma.challenge.findMany({
+                select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    category: true,
+                    points: true,
+                    type: true,
+                    tags: true,
+                    state: true,
+                    createdAt: true,
+                    hints: { select: { cost: true } },
+                },
+            })
+            const visibleChallenges = challenges.filter((c) => c.state === 'VISIBLE')
+            return NextResponse.json(
+                visibleChallenges.map((challenge) => ({
+                    id: challenge.id,
+                    title: challenge.title,
+                    description: challenge.description,
+                    category: challenge.category,
+                    points: challenge.points,
+                    type: challenge.type,
+                    tags: challenge.tags,
+                    createdAt: challenge.createdAt,
+                    hints: challenge.hints.map((h) => ({ cost: h.cost })),
+                }))
+            )
+        }
     } catch(err) {
         console.error(err)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

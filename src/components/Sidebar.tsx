@@ -1,9 +1,9 @@
 'use client'
 
-import { Bell, ChartArea, CircleUserRound, LogIn, LogOut, Settings, SquareUserRound, Swords, Users, Wrench } from 'lucide-react'
 import { Divider, Tooltip } from '@heroui/react'
-import { redirect } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Bell, ChartArea, CircleUserRound, LogIn, LogOut, Settings, SquareUserRound, Swords, Undo2, Users, Wrench } from 'lucide-react'
+import { redirect, usePathname } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
 
 type Me = {
     authenticated: boolean,
@@ -14,7 +14,10 @@ type Me = {
 }
 
 export default function Sidebar() {
+    const pathname = usePathname()
     const [auth, setAuth] = useState<Me | null>(null)
+    const currentAdmin = useMemo(() => auth?.user?.role === 'ADMIN' && pathname.startsWith('/admin'), [auth, pathname])
+    
     useEffect(() => {
         fetch('/api/me', { credentials: 'include' })
         .then(res => res.json())
@@ -26,12 +29,15 @@ export default function Sidebar() {
         <div className='flex flex-col gap-6 items-center'>
             <h1 className='text-xl font-semibold cursor-pointer' onClick={() => redirect('/')}>CTFer</h1>
             <Divider />
-            <Tooltip color='foreground' closeDelay={0} content='Users' placement='right'><CircleUserRound className='cursor-pointer' onClick={() => redirect('/users')} /></Tooltip>
-            <Tooltip color='foreground' closeDelay={0} content='Teams' placement='right'><Users className='cursor-pointer' onClick={() => redirect('/teams')} /></Tooltip>
-            <Tooltip color='foreground' closeDelay={0} content='Scoreboard' placement='right'><ChartArea className='cursor-pointer' onClick={() => redirect('/scoreboard')} /></Tooltip>
-            <Tooltip color='foreground' closeDelay={0} content='Challenges' placement='right'><Swords className='cursor-pointer' onClick={() => redirect('/challenges')} /></Tooltip>
+            <Tooltip color='foreground' closeDelay={0} content='Users' placement='right'><CircleUserRound className='cursor-pointer' onClick={() => { redirect(currentAdmin ? '/admin/users' : '/users') }} /></Tooltip>
+            <Tooltip color='foreground' closeDelay={0} content='Teams' placement='right'><Users className='cursor-pointer' onClick={() => redirect(currentAdmin ? '/admin/teams' : '/teams')} /></Tooltip>
+            <Tooltip color='foreground' closeDelay={0} content='Scoreboard' placement='right'><ChartArea className='cursor-pointer' onClick={() => redirect(currentAdmin ? '/admin/scoreboard' : '/scoreboard')} /></Tooltip>
+            <Tooltip color='foreground' closeDelay={0} content='Challenges' placement='right'><Swords className='cursor-pointer' onClick={() => redirect(currentAdmin ? '/admin/challenges' : '/challenges')} /></Tooltip>
             <Divider />
-            {auth?.user?.role === 'ADMIN' && <Tooltip color='foreground' closeDelay={0} content='Admin Section' placement='right'><Wrench className='cursor-pointer' onClick={() => redirect('/admin/users')} /></Tooltip>}
+            {auth?.user?.role === 'ADMIN' && <Tooltip color='foreground' closeDelay={0} content={`${currentAdmin ? 'User Mode' : 'Admin Mode'}`} placement='right'>
+                {currentAdmin ? <Undo2 className='cursor-pointer' onClick={() => redirect(pathname.replace('/admin', ''))} /> :
+                <Wrench className='cursor-pointer' onClick={() => redirect('/admin' + pathname)} />}
+            </Tooltip>}
             <Tooltip color='foreground' closeDelay={0} content='Notifications' placement='right'><Bell className='cursor-pointer' onClick={() => redirect('/notifications')} /></Tooltip>
             {auth?.authenticated && <Tooltip color='foreground' closeDelay={0} content='Your Team' placement='right'><SquareUserRound className='cursor-pointer' onClick={() => redirect('/you')} /></Tooltip>}
         </div>
