@@ -46,6 +46,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             : []
         const tagValues: string[] = Array.isArray(tags) ? tags.filter((t) => typeof t === 'string' && t.trim().length > 0) : []
 
+        const existing = await prisma.challenge.findUnique({
+            where: { id: challengeId },
+            select: { points: true }
+        })
+
         const updatedChallenge = await prisma.challenge.update({
             where: { id: challengeId },
             data: {
@@ -79,6 +84,33 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
                 hints: { select: { content: true, cost: true } },
             },
         })
+
+        if(existing && typeof existing.points === 'number') {
+            const delta = pointsValue - existing.points
+            if(delta !== 0) {
+                await prisma.solve.updateMany({
+                    where: { challengeId },
+                    data: { points: pointsValue }
+                })
+                const solves = await prisma.solve.findMany({
+                    where: { challengeId },
+                    select: { userId: true, teamId: true }
+                })
+                const affectedUserIds = Array.from(new Set(solves.map(s => s.userId)))
+                const affectedTeamIds = Array.from(new Set(solves.map(s => s.teamId).filter((t): t is number => !!t)))
+                for(const uid of affectedUserIds) {
+                    await prisma.user.update({ where: { id: uid }, data: { score: { increment: delta } } })
+                }
+                for(const tid of affectedTeamIds) {
+                    const members = await prisma.teamMember.findMany({
+                        where: { teamId: tid },
+                        select: { user: { select: { score: true } } }
+                    })
+                    const teamScore = members.reduce((acc, m) => acc + (m.user?.score ?? 0), 0)
+                    await prisma.team.update({ where: { id: tid }, data: { score: teamScore } })
+                }
+            }
+        }
 
         return NextResponse.json({
             id: updatedChallenge.id,

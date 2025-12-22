@@ -15,11 +15,13 @@ type Challenge = {
     tags: string[]
     createdAt: Date
     hints?: { cost: number }[]
+    solved?: boolean
 }
 
 export default function ChallengesPage() {
     const [challenges, setChallenges] = useState<Challenge[]>([])
     const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null)
+    const [submittedFlag, setSubmittedFlag] = useState('')
     const sortedChallenges = useMemo(() => Array.isArray(challenges) ? [...challenges].sort((a, b) => a.category.localeCompare(b.category)) : [], [challenges])
     const categories = useMemo(() => Array.from(new Set(sortedChallenges.map((c) => c.category))), [sortedChallenges])
 
@@ -39,6 +41,43 @@ export default function ChallengesPage() {
         })
     }, [])
 
+    const handleFlagSubmit = () => {
+        fetch('/api/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ challengeId: selectedChallenge?.id, flag: submittedFlag })
+        })
+        .then((res) => res.json())
+        .then((data) => {
+            if(data.success) {
+                addToast({
+                    title: 'Flag Submitted',
+                    description: 'Your flag was submitted successfully.',
+                    color: 'success',
+                    timeout: 5000,
+                    shouldShowTimeoutProgress: true
+                })
+            } else {
+                addToast({
+                    title: 'Submission Failed',
+                    description: data.message || 'There was an error submitting your flag.',
+                    color: 'danger',
+                    timeout: 5000,
+                    shouldShowTimeoutProgress: true
+                })
+            }
+        })
+        .catch(() => {
+            addToast({
+                title: 'Internal Server Error',
+                description: 'Could not submit flag',
+                color: 'danger',
+                timeout: 5000,
+                shouldShowTimeoutProgress: true
+            })
+        })
+    }
+
     return <div className="flex flex-row items-center w-full *:min-h-screen">
         <div className="flex flex-col bg-[#2d2e2e] w-1/4 p-5 rounded-tr-lg">
             <h1 className='text-2xl font-bold mb-5'>Challenges</h1>
@@ -48,7 +87,7 @@ export default function ChallengesPage() {
                     <h2 className="text-lg font-bold my-2">{category}</h2>
                     <div className="space-y-3">
                         {sortedChallenges.filter((c) => c.category === category).map((challenge) => (
-                            <Button key={challenge.id} fullWidth className='flex flex-row gap-3 items-center p-3 justify-between' onPress={() => setSelectedChallenge(challenge)}>
+                            <Button key={challenge.id} fullWidth variant='flat' color={challenge.solved ? 'success' : 'default'} className='flex flex-row gap-3 items-center p-3 justify-between' onPress={() => setSelectedChallenge(challenge)}>
                                 <span className="font-semibold">{challenge.title}</span>
                                 <span className="font-semibold text-gray-300">{challenge.points} pts</span>
                             </Button>
@@ -74,8 +113,8 @@ export default function ChallengesPage() {
                         <Tab key="Flag" title="Flag" className="p-5">
                             <h2 className="text-2xl font-bold mb-3">Enter Flag</h2>
                             <div className="flex flex-row gap-2">
-                                <Input startContent={<LandPlot />} placeholder="Enter your flag here" />
-                                <Button color='default' variant='flat'>Submit Flag</Button>
+                                <Input startContent={<LandPlot />} placeholder="Enter your flag here" value={submittedFlag} onValueChange={setSubmittedFlag} />
+                                <Button color='default' variant='flat' onPress={handleFlagSubmit}>Submit Flag</Button>
                             </div>
                         </Tab>
                         <Tab key="Hints" title="Hints">

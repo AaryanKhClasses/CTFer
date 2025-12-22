@@ -9,9 +9,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
         const user = await prisma.user.findUnique({
             where: { id: userId, active: true, hidden: false },
-            select: { id: true, username: true, score: true, role: true, createdAt: true, active: true, hidden: true, teamMember: {
-                select: { team: { select: { id: true, name: true, score: true } } }
-            } }
+            include: {
+                teamMember: {
+                    select: { team: { select: { id: true, name: true, score: true } } }
+                },
+                solves: {
+                    select: {
+                        challenge: { select: { id: true, title: true, points: true } },
+                        points: true,
+                        solvedAt: true
+                    },
+                }
+            }
         })
 
         if(!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -24,6 +33,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             createdAt: user.createdAt,
             active: user.active,
             hidden: user.hidden,
+            teamName: user.teamMember?.team?.name ?? null,
+            solves: (user.solves || []).map(s => ({
+                id: s.challenge.id,
+                title: s.challenge.title,
+                points: s.points,
+                solvedAt: s.solvedAt
+            }))
         })
     } catch(err) {
         console.error(err)

@@ -48,6 +48,15 @@ export async function GET(request: Request) {
                 }))
             )
         } else {
+            const userId = Number(payload.sub)
+            if(!Number.isInteger(userId)) return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+
+            const teamMember = await prisma.teamMember.findUnique({
+                where: { userId },
+                select: { teamId: true }
+            })
+            const teamId = teamMember?.teamId ?? null
+
             const challenges = await prisma.challenge.findMany({
                 select: {
                     id: true,
@@ -63,6 +72,12 @@ export async function GET(request: Request) {
                 },
             })
             const visibleChallenges = challenges.filter((c) => c.state === 'VISIBLE')
+            const solvedByUserOrTeam = await prisma.solve.findMany({
+                where: teamId ? { OR: [{ userId }, { teamId }] } : { userId },
+                select: { challengeId: true }
+            })
+            const solvedIds = new Set(solvedByUserOrTeam.map(s => s.challengeId))
+
             return NextResponse.json(
                 visibleChallenges.map((challenge) => ({
                     id: challenge.id,
@@ -74,6 +89,7 @@ export async function GET(request: Request) {
                     tags: challenge.tags,
                     createdAt: challenge.createdAt,
                     hints: challenge.hints.map((h) => ({ cost: h.cost })),
+                    solved: solvedIds.has(challenge.id),
                 }))
             )
         }
