@@ -33,6 +33,7 @@ export default function UsersPage() {
     const [currentUser, setCurrentUser] = useState<User | null>(null)
     const [userDetails, setUserDetails] = useState<User | null>(null)
     const [loadingDetails, setLoadingDetails] = useState(false)
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         fetch('/api/users')
@@ -48,16 +49,17 @@ export default function UsersPage() {
                 timeout: 5000,
             })
         })
+        .finally(() => setLoading(false))
 
         fetch('/api/me', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
-            if(data.user.role === 'ADMIN') setIsAdmin(true)
+            if(data.user && data.user.role === 'ADMIN') setIsAdmin(true)
         })
     }, [])
 
     const filteredUsers = useMemo(() => {
-        if (!filter.trim()) return users
+        if(!filter.trim()) return users
         return users?.filter(user => user.username.toLowerCase().includes(filter.toLowerCase()))
     }, [users, filter])
 
@@ -85,14 +87,14 @@ export default function UsersPage() {
     }
 
     const scoreProgressionData = useMemo(() => {
-        if (!userDetails?.solves || userDetails.solves.length === 0) return []
+        if(!userDetails?.solves || userDetails.solves.length === 0) return []
         
         const sortedSolves = [...userDetails.solves].sort((a, b) => 
             new Date(a.solvedAt).getTime() - new Date(b.solvedAt).getTime()
         )
         
         let cumulativeScore = 0
-        return sortedSolves.map((solve, idx) => {
+        return sortedSolves.map((solve) => {
             cumulativeScore += solve.points
             return {
                 time: new Date(solve.solvedAt).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }),
@@ -118,7 +120,7 @@ export default function UsersPage() {
                 <TableColumn>Team Name</TableColumn>
                 <TableColumn>Score</TableColumn>
             </TableHeader>
-            <TableBody emptyContent='No users found'>
+            <TableBody emptyContent={loading ? 'Loading users...' : 'No users found'}>
                 {items?.map(user => {
                     return !isAdmin && user.hidden ? <></> : <TableRow key={user.id} className={`${user.role === 'ADMIN' ? 'text-danger' : user.hidden ? 'text-success' : ''}`}>
                         <TableCell>{user.id}</TableCell>

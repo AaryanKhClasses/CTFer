@@ -14,6 +14,7 @@ type Team = {
 
 export default function AdminTeamsPage() {
     const [teams, setTeams] = useState<Team[] | null>(null)
+    const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)
     const rowsPerPage = 10
     const [filter, setFilter] = useState('')
@@ -32,10 +33,11 @@ export default function AdminTeamsPage() {
                 timeout: 5000,
             })
         })
+        .finally(() => setLoading(false))
     }, [])
 
     const filteredTeams = useMemo(() => {
-        if (!filter.trim()) return teams
+        if(!filter.trim()) return teams
         return teams?.filter(team => team.name.toLowerCase().includes(filter.toLowerCase()))
     }, [teams, filter])
 
@@ -52,7 +54,7 @@ export default function AdminTeamsPage() {
         .then(res => res.json())
         .then(updatedTeam => {
             setTeams(prevTeams => {
-                if (!prevTeams) return prevTeams
+                if(!prevTeams) return prevTeams
                 return prevTeams.map(team => team.id === updatedTeam.id ? updatedTeam : team)
             })
             addToast({
@@ -85,7 +87,7 @@ export default function AdminTeamsPage() {
                 <TableColumn>Score</TableColumn>
                 <TableColumn>Actions</TableColumn>
             </TableHeader>
-            <TableBody emptyContent='No teams found'>
+            <TableBody emptyContent={loading ? 'Loading teams...' : 'No teams found'}>
                 {items?.map(team => {
                     return <TableRow key={team.id} className={`${team.hidden ? 'text-success' : ''}`}>
                         <TableCell>{team.id}</TableCell>

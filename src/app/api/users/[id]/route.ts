@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         if(isNaN(userId)) return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
 
         const user = await prisma.user.findUnique({
-            where: { id: userId, active: true, hidden: false },
+            where: { id: userId },
             include: {
                 teamMember: {
                     select: { team: { select: { id: true, name: true, score: true } } }

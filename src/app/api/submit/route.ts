@@ -2,6 +2,48 @@ import prisma from '@/lib/db'
 import { verifyJWT } from '@/lib/jwt'
 import { NextResponse } from 'next/server'
 
+export async function GET(request: Request) {
+    try {
+        const cookieHeader = request.headers.get('cookie')
+        const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
+        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        let payload
+        try {
+            payload = verifyJWT(tokenMatch[1])
+        } catch {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        if(payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const submissions = await prisma.submission.findMany({
+            where: {},
+            select: {
+                id: true,
+                user: { select: { username: true } },
+                team: { select: { name: true } },
+                challenge: { select: { title: true } },
+                submitted: true,
+                correct: true,
+                submittedAt: true,
+            }
+        })
+        return NextResponse.json(
+            submissions.map(submission => ({
+                id: submission.id,
+                username: submission.user?.username,
+                teamName: submission.team?.name,
+                challengeTitle: submission.challenge?.title,
+                submitted: submission.submitted,
+                correct: submission.correct,
+                submittedAt: submission.submittedAt,
+            }))
+        )
+    } catch(err) {
+        console.error(err)
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    }
+}
+
 export async function POST(request: Request) {
     const { challengeId, flag } = await request.json()
     if(!challengeId) return NextResponse.json({ success: false, message: 'Invalid Challenge.' }, { status: 400 })
@@ -10,7 +52,7 @@ export async function POST(request: Request) {
     try {
         const cookieHeader = request.headers.get('cookie')
         const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if (!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         let payload
         try {
             payload = verifyJWT(tokenMatch[1])

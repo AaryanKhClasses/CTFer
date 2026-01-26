@@ -6,7 +6,7 @@ export async function GET(request: Request) {
     try {
         const cookieHeader = request.headers.get('cookie')
         const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if (!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         let payload
         try {
             payload = verifyJWT(tokenMatch[1])
@@ -103,22 +103,22 @@ export async function POST(request: Request) {
     try {
         const cookieHeader = request.headers.get('cookie')
         const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if (!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         let payload
         try {
             payload = verifyJWT(tokenMatch[1])
         } catch {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
-        if (payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        if(payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
         const authorId = Number(payload.sub)
-        if (!Number.isInteger(authorId)) return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+        if(!Number.isInteger(authorId)) return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
 
         const data = await request.json()
         const { title, description, category, points, type, flags, hints, state, tags } = data
 
-        if (!title || typeof points !== 'number' || !type) {
+        if(!title || typeof points !== 'number' || !type) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 

@@ -7,22 +7,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     try {
         const cookieHeader = request.headers.get('cookie')
         const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if (!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         let payload
         try {
             payload = verifyJWT(tokenMatch[1])
         } catch {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
-        if (payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        if(payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
         const challengeId = parseInt(id)
-        if (isNaN(challengeId)) return NextResponse.json({ error: 'Invalid challenge ID' }, { status: 400 })
+        if(isNaN(challengeId)) return NextResponse.json({ error: 'Invalid challenge ID' }, { status: 400 })
 
         const data = await request.json()
         const { title, description, category, points, type, flags, hints, state, tags } = data
 
-        if (!title || typeof points !== 'number' || !type) {
+        if(!title || typeof points !== 'number' || !type) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
@@ -136,17 +136,17 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     try {
         const cookieHeader = request.headers.get('cookie')
         const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if (!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         let payload
         try {
             payload = verifyJWT(tokenMatch[1])
         } catch {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
-        if (payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        if(payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
         const challengeId = parseInt(id)
-        if (isNaN(challengeId)) return NextResponse.json({ error: 'Invalid challenge ID' }, { status: 400 })
+        if(isNaN(challengeId)) return NextResponse.json({ error: 'Invalid challenge ID' }, { status: 400 })
 
         await prisma.challenge.delete({
             where: { id: challengeId },

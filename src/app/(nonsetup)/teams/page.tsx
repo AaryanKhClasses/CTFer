@@ -14,6 +14,7 @@ type Team = {
 
 export default function TeamsPage() {
     const [teams, setTeams] = useState<Team[] | null>(null)
+    const [loading, setLoading] = useState(true)
     const [isAdmin, setIsAdmin] = useState(false)
     const [page, setPage] = useState(1)
     const rowsPerPage = 10
@@ -33,16 +34,17 @@ export default function TeamsPage() {
                 timeout: 5000,
             })
         })
+        .finally(() => setLoading(false))
 
         fetch('/api/me', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
-            if(data.user.role === 'ADMIN') setIsAdmin(true)
+            if(data.user && data.user.role === 'ADMIN') setIsAdmin(true)
         })
     }, [])
 
     const filteredTeams = useMemo(() => {
-        if (!filter.trim()) return teams
+        if(!filter.trim()) return teams
         return teams?.filter(team => team.name.toLowerCase().includes(filter.toLowerCase()))
     }, [teams, filter])
 
@@ -63,7 +65,7 @@ export default function TeamsPage() {
                 <TableColumn>Team Name</TableColumn>
                 <TableColumn>Score</TableColumn>
             </TableHeader>
-            <TableBody emptyContent='No teams found'>
+            <TableBody emptyContent={loading ? 'Loading teams...' : 'No teams found'}>
                 {items?.map(team => {
                     return !isAdmin && team.hidden ? <></> : <TableRow key={team.id} className={`${team.hidden ? 'text-success' : ''}`}>
                         <TableCell>{team.id}</TableCell>

@@ -22,6 +22,7 @@ type Challenge = {
 
 export default function AdminChallengesPage() {
     const [challenges, setChallenges] = useState<Challenge[] | null>(null)
+    const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)
     const rowsPerPage = 10
     const [filter, setFilter] = useState('')
@@ -56,10 +57,11 @@ export default function AdminChallengesPage() {
                 timeout: 5000,
             })
         })
+        .finally(() => setLoading(false))
     }, [])
 
     const filteredChallenges = useMemo(() => {
-        if (!filter.trim()) return challenges
+        if(!filter.trim()) return challenges
         return challenges?.filter(challenge => challenge.title.toLowerCase().includes(filter.toLowerCase()))
     }, [challenges, filter])
 
@@ -96,7 +98,7 @@ export default function AdminChallengesPage() {
         })
         .then(res => res.json())
         .then(savedChallenge => {
-            if (isEditing) {
+            if(isEditing) {
                 setChallenges(prev => prev ? prev.map(c => c.id === savedChallenge.id ? savedChallenge : c) : [savedChallenge])
                 addToast({
                     title: 'Challenge Updated',
@@ -198,7 +200,7 @@ export default function AdminChallengesPage() {
                 <TableColumn>Type</TableColumn>
                 <TableColumn>Actions</TableColumn>
             </TableHeader>
-            <TableBody emptyContent='No challenges found'>
+            <TableBody emptyContent={`${loading ? 'Loading Table...' : 'No challenges found'}`}>
                 {items?.map(challenge => {
                     return <TableRow key={challenge.id} className={`${challenge.hidden ? 'text-success' : ''}`}>
                         <TableCell>{challenge.id}</TableCell>

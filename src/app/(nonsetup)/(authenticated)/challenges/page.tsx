@@ -19,7 +19,8 @@ type Challenge = {
 }
 
 export default function ChallengesPage() {
-    const [challenges, setChallenges] = useState<Challenge[]>([])
+    const [challenges, setChallenges] = useState<Challenge[] | null>(null)
+    const [loading, setLoading] = useState(true)
     const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null)
     const [submittedFlag, setSubmittedFlag] = useState('')
     const sortedChallenges = useMemo(() => Array.isArray(challenges) ? [...challenges].sort((a, b) => a.category.localeCompare(b.category)) : [], [challenges])
@@ -39,6 +40,7 @@ export default function ChallengesPage() {
                 shouldShowTimeoutProgress: true
             })
         })
+        .finally(() => setLoading(false))
     }, [])
 
     const handleFlagSubmit = () => {
@@ -98,8 +100,9 @@ export default function ChallengesPage() {
             ))}
         </div>
         <div className="flex flex-col w-3/4">
-            {challenges.length === 0 && <p className="h-screen flex items-center justify-center text-3xl text-gray-300">No challenges available.</p>}
-            {!selectedChallenge && challenges.length > 0 && <p className="h-screen flex items-center justify-center text-3xl text-gray-300">Select a challenge to view details.</p>}
+            {loading && <p className="h-screen flex items-center justify-center text-3xl text-gray-300">Loading Challenges...</p>}
+            {!loading && (challenges?.length ?? 0) === 0 && <p className="h-screen flex items-center justify-center text-3xl text-gray-300">No challenges available.</p>}
+            {!loading && !selectedChallenge && (challenges?.length ?? 0) > 0 && <p className="h-screen flex items-center justify-center text-3xl text-gray-300">Select a challenge to view details.</p>}
             {selectedChallenge && <div className="flex flex-col *:p-5 w-full min-h-screen justify-between">
                 <div className="flex flex-col items-start justify-start">
                     <h1 className="text-4xl font-bold underline-offset-3 underline">{selectedChallenge.title}</h1>
