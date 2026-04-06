@@ -189,7 +189,7 @@ export default function AdminChallengesPage() {
         <h1 className='text-4xl font-bold mb-[10vh]'>Challenges</h1>
         <div className="flex flex-row w-full items-center">
             <Input startContent={<Search />} className='w-full' type='text' label='Filter by challenge name' labelPlacement='outside' placeholder='Type to filter...' value={filter} onValueChange={setFilter} />
-            <Button onPress={() => { resetForm(); modal.onOpen(); }} className='p-4 ml-2 mb-[-23]' color='default' variant='flat'><Plus size={50} /> Add Challenge</Button>
+            <Button onPress={() => { resetForm(); modal.onOpen() }} className='p-4 ml-2 mb-[-23]' color='default' variant='flat'><Plus size={50} /> Add Challenge</Button>
         </div>
         <Table aria-label="Admin Challenges Table">
             <TableHeader>

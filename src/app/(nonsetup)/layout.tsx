@@ -1,14 +1,13 @@
-import prisma from '@/lib/db'
+import { createServiceRoleClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 
-let cachedSettingsExists: boolean | null = null
-
 export default async function NonSetupLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-    if(cachedSettingsExists === null) {
-        const settings = await prisma.settings.findFirst({ select: { id: true } })
-        cachedSettingsExists = !!settings
-    }
+    const supabase = createServiceRoleClient()
+    const { data: settings } = await supabase
+        .from('Settings')
+        .select('id')
+        .limit(1)
 
-    if(!cachedSettingsExists) return redirect('/setup') 
+    if(!settings || settings.length === 0) return redirect('/setup')
     return <div>{children}</div>
 }

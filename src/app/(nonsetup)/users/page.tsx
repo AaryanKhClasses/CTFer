@@ -51,7 +51,7 @@ export default function UsersPage() {
         })
         .finally(() => setLoading(false))
 
-        fetch('/api/me', { credentials: 'include' })
+        fetch('/api/me')
         .then(res => res.json())
         .then(data => {
             if(data.user && data.user.role === 'ADMIN') setIsAdmin(true)

@@ -1,7 +1,7 @@
 'use client'
 
 import { addToast, Button, Form, Input, Link } from '@heroui/react'
-import { CircleUser, KeyRound } from 'lucide-react'
+import { KeyRound, Mail } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function LoginPage() {
@@ -13,9 +13,8 @@ export default function LoginPage() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            credentials: 'include',
             body: JSON.stringify({
-                username: formData.get('username'),
+                email: formData.get('email'),
                 password: formData.get('password')
             })
         })
@@ -33,7 +32,7 @@ export default function LoginPage() {
     }
 
     useEffect(() => {
-        fetch('/api/me', { credentials: 'include' })
+        fetch('/api/me')
         .then(res => res.json())
         .then(data => {
             if(data.authenticated) window.location.href = '/'
@@ -43,7 +42,7 @@ export default function LoginPage() {
     return <div className='flex flex-col items-center justify-center h-screen'>
         <h1 className='text-4xl font-bold mb-[10vh]'>Login</h1>
         <Form className='p-10 min-h-[50vh] flex justify-center items-center bg-[#1d1f1f] rounded-lg' onSubmit={onSubmit}>
-            <Input isRequired name='username' className='w-[35vw]' startContent={<CircleUser />} placeholder='Enter username' label='Username' labelPlacement='outside' />
+            <Input isRequired name='email' className='w-[35vw]' startContent={<Mail />} placeholder='Enter email' label='Email' labelPlacement='outside' type='email' />
             <Input isRequired name='password' className='w-[35vw]' startContent={<KeyRound />} placeholder='Enter password' label='Password' labelPlacement='outside' type='password' />
             <Button className='w-full mt-4' variant='solid' color='default' type='submit'>Login</Button>
             <div className='flex flex-row pt-3 justify-between w-full items-center'>

@@ -1,37 +1,44 @@
-import prisma from '@/lib/db'
-import { signJWT } from '@/lib/jwt'
-import bcrypt from 'bcrypt'
-import { NextResponse } from 'next/server'
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase-server'
+import { successResponse, validationError, errorResponse } from '@/lib/api-response'
 
 export async function POST(req: Request) {
     try {
         const { email, username, password } = await req.json()
-        if(!email || !username || !password) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-        if(password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters long' }, { status: 400 })
+        if(!email || !username || !password) return validationError('Missing fields')
+        if(password.length < 6) return validationError('Password must be at least 6 characters long')
 
-        const existing = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } })
-        if(existing) return NextResponse.json({ error: 'Username already taken' }, { status: 409 })
-
-        const hashedPassword = await bcrypt.hash(password, 10)
-        const user = await prisma.user.create({
-            data: {
-                email: email,
-                username: username,
-                password: hashedPassword,
+        const supabase = await createServerSupabaseClient()
+        const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: { username }
             }
         })
-        const token = signJWT({ sub: user.id.toString(), role: user.role, ver: user.authVersion })
-        const res = NextResponse.json({ success: true })
-        res.cookies.set('auth', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 60 * 60 * 24 // 1 day
+
+        if(signUpError) return validationError(signUpError.message)
+        if(!user) return errorResponse('Failed to create user', 500)
+
+        const supabaseAdmin = createServiceRoleClient()
+        const { error: updateError } = await supabaseAdmin
+            .from('User')
+            .update({ username })
+            .eq('id', user.id)
+
+        if(updateError) {
+            console.error('Failed to update username:', updateError.message)
+            return errorResponse('Failed to update user profile', 500)
+        }
+
+        const { data: { user: signedInUser }, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password
         })
-        return res
+
+        if(signInError) console.warn('Auto-login after signup failed:', signInError.message)
+        return successResponse({ id: user.id, email: user.email }, 201)
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }

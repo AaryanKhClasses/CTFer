@@ -1,82 +1,94 @@
-import prisma from '@/lib/db'
-import { verifyJWT } from '@/lib/jwt'
-import { NextResponse } from 'next/server'
+import { errorResponse, successResponse, unauthorizedResponse, validationError } from '@/lib/api-response'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function GET() {
     try {
-        const teams = await prisma.team.findMany({
-            where: { },
-            select: { id: true, name: true, score: true, createdAt: true, hidden: true, members: true },
-        })
-        return NextResponse.json(teams.map(team => ({
+        const supabase = await createServerSupabaseClient()
+        const { data: teams } = await supabase
+            .from('Team')
+            .select('id, name, score, createdAt, hidden')
+
+        const mapped = teams?.map(team => ({
             id: team.id,
             name: team.name,
             score: team.score,
             createdAt: team.createdAt,
             hidden: team.hidden
-        })))
+        })) || []
+
+        return successResponse(mapped)
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }
 
 export async function POST(request: Request) {
-    const cookie = request.headers.get('cookie')
-    if(!cookie) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const match = cookie.match(/auth=([^;]+)/)
-    if(!match) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
     try {
-        const payload = verifyJWT(match[1])
-        const userId = parseInt(payload.sub as string)
+        const supabase = await createServerSupabaseClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if(!user) return unauthorizedResponse()
+
         const { action, teamName, teamPassword } = await request.json()
 
-        const existingTeamMember = await prisma.teamMember.findUnique({ where: { userId } })
-        if(existingTeamMember) return NextResponse.json({ error: 'User is already in a team' }, { status: 400 })
+        const { data: existingTeamMember } = await supabase
+            .from('TeamMember')
+            .select('id')
+            .eq('userId', user.id)
+            .single()
+        if(existingTeamMember) return errorResponse('User is already in a team', 400)
 
         if(action === 'create') {
-            if(!teamName || teamName.trim().length === 0) return NextResponse.json({ error: 'Team name is required' }, { status: 400 })
-            if(!teamPassword || teamPassword.trim().length === 0) return NextResponse.json({ error: 'Team password is required' }, { status: 400 })
-            const existingTeam = await prisma.team.findUnique({ where: { name: teamName } })
-            if(existingTeam) return NextResponse.json({ error: 'Team name already exists' }, { status: 400 })
+            if(!teamName || teamName.trim().length === 0) return validationError('Team name is required')
+            if(!teamPassword || teamPassword.trim().length === 0) return validationError('Team password is required')
 
-            const newTeam = await prisma.team.create({
-                data: {
-                    name: teamName,
-                    password: teamPassword,
-                    members: {
-                        create: {
-                            userId
-                        }
-                    }
-                },
-                select: { id: true, name: true }
-            })
+            const { data: existingTeam } = await supabase
+                .from('Team')
+                .select('id')
+                .eq('name', teamName)
+                .single()
 
-            return NextResponse.json({ success: true, team: newTeam }, { status: 201 })
+            if(existingTeam) return errorResponse('Team name already exists', 400)
+
+            const { data: newTeam, error: createError } = await supabase
+                .from('Team')
+                .insert({ name: teamName, password: teamPassword })
+                .select('id, name')
+                .single()
+
+            if(createError || !newTeam) return errorResponse('Failed to create team', 500)
+
+            await supabase
+                .from('TeamMember')
+                .insert({ userId: user.id, teamId: newTeam.id })
+
+            return successResponse({ team: newTeam }, 201)
         } else if(action === 'join') {
-            if(!teamName || teamName.trim().length === 0) return NextResponse.json({ error: 'Team name is required' }, { status: 400 })
-            if(!teamPassword || teamPassword.trim().length === 0) return NextResponse.json({ error: 'Team password is required' }, { status: 400 })
-            const team = await prisma.team.findUnique({ where: { name: teamName } })
-            if(!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+            if(!teamName || teamName.trim().length === 0) return validationError('Team name is required')
+            if(!teamPassword || teamPassword.trim().length === 0) return validationError('Team password is required')
 
-            if(team.password !== teamPassword) return NextResponse.json({ error: 'Invalid team password' }, { status: 401 })
+            const { data: team } = await supabase
+                .from('Team')
+                .select('id, password')
+                .eq('name', teamName)
+                .single()
 
-            const teamMember = await prisma.teamMember.create({
-                data: {
-                    userId,
-                    teamId: team.id
-                },
-                select: { team: { select: { id: true, name: true } } }
-            })
+            if(!team) return errorResponse('Team not found', 404)
 
-            return NextResponse.json({ success: true, team: teamMember.team }, { status: 201 })
+            if(team.password !== teamPassword) return errorResponse('Invalid team password', 401)
+            const { data: teamMember, error: joinError } = await supabase
+                .from('TeamMember')
+                .insert({ userId: user.id, teamId: team.id })
+                .select('team:Team(id, name)')
+                .single()
+
+            if(joinError || !teamMember) return errorResponse('Failed to join team', 500)
+            return successResponse({ team: teamMember.team }, 201)
         } else {
-            return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+            return validationError('Invalid action')
         }
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }

@@ -52,7 +52,7 @@ export default function SetupPage() {
         const checkSetup = async() => {
             const res = await fetch('/api/setup')
             const data = await res.json()
-            if(data.setup) window.location.href = '/'
+            if(data.success) window.location.href = '/'
         }
         checkSetup()
     }, [])

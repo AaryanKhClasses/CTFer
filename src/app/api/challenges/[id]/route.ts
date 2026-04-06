@@ -1,160 +1,173 @@
-import prisma from '@/lib/db'
-import { NextResponse } from 'next/server'
-import { verifyJWT } from '@/lib/jwt'
+import { errorResponse, forbiddenResponse, notFoundResponse, successResponse, validationError } from '@/lib/api-response'
+import { getCurrentUserProfile } from '@/lib/auth'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     try {
-        const cookieHeader = request.headers.get('cookie')
-        const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        let payload
-        try {
-            payload = verifyJWT(tokenMatch[1])
-        } catch {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-        if(payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const profile = await getCurrentUserProfile()
+        if(profile.role !== 'ADMIN') return forbiddenResponse()
 
         const challengeId = parseInt(id)
-        if(isNaN(challengeId)) return NextResponse.json({ error: 'Invalid challenge ID' }, { status: 400 })
+        if(isNaN(challengeId)) return validationError('Invalid challenge ID')
 
         const data = await request.json()
         const { title, description, category, points, type, flags, hints, state, tags } = data
-
-        if(!title || typeof points !== 'number' || !type) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-        }
+        if(!title || typeof points !== 'number' || !type) return validationError('Missing required fields')
 
         const normalizedState = ['VISIBLE', 'HIDDEN', 'LOCKED'].includes(state) ? state : 'VISIBLE'
         const normalizedType = typeof type === 'string' && type.trim().length > 0 ? type : 'Static'
         const pointsValue = Number.isFinite(points) ? Math.max(0, Math.trunc(points)) : 0
 
-        const flagData = Array.isArray(flags) 
-            ? flags.filter((f) => f && typeof f.content === 'string' && f.content.trim().length > 0)
-                   .map((f) => ({
+        const flagData = Array.isArray(flags)
+            ? flags.filter(f => f && typeof f.content === 'string' && f.content.trim().length > 0)
+                   .map(f => ({
                        content: f.content,
                        type: ['CASE_SENSITIVE', 'CASE_INSENSITIVE'].includes(f.type) ? f.type : 'CASE_SENSITIVE'
                    }))
             : []
         const hintData = Array.isArray(hints)
-            ? hints.filter((h) => h && typeof h.content === 'string' && h.content.trim().length > 0)
-                   .map((h) => ({
+            ? hints.filter(h => h && typeof h.content === 'string' && h.content.trim().length > 0)
+                   .map(h => ({
                        content: h.content,
                        cost: typeof h.cost === 'number' ? Math.max(0, Math.trunc(h.cost)) : 0
                    }))
             : []
-        const tagValues: string[] = Array.isArray(tags) ? tags.filter((t) => typeof t === 'string' && t.trim().length > 0) : []
+        const tagValues = Array.isArray(tags) ? tags.filter(t => typeof t === 'string' && t.trim().length > 0) : []
 
-        const existing = await prisma.challenge.findUnique({
-            where: { id: challengeId },
-            select: { points: true }
-        })
+        const supabase = await createServerSupabaseClient()
+        const { data: existing } = await supabase
+            .from('Challenge')
+            .select('points')
+            .eq('id', challengeId)
+            .single()
 
-        const updatedChallenge = await prisma.challenge.update({
-            where: { id: challengeId },
-            data: {
+        const { data: updated, error: updateError } = await supabase
+            .from('Challenge')
+            .update({
                 title,
                 description: description ?? '',
                 category: category ?? 'Uncategorized',
                 points: pointsValue,
                 type: normalizedType,
                 state: normalizedState,
-                tags: tagValues,
-                flags: {
-                    deleteMany: {},
-                    create: flagData,
-                },
-                hints: {
-                    deleteMany: {},
-                    create: hintData,
-                },
-            },
-            select: {
-                id: true,
-                title: true,
-                description: true,
-                category: true,
-                points: true,
-                type: true,
-                state: true,
-                tags: true,
-                createdAt: true,
-                flags: { select: { content: true, type: true } },
-                hints: { select: { content: true, cost: true } },
-            },
-        })
+                tags: tagValues
+            })
+            .eq('id', challengeId)
+            .select('id, title, description, category, points, type, state, tags, createdAt')
+            .single()
+
+        if(updateError || !updated) return notFoundResponse('Challenge not found')
+
+        await supabase.from('Flag').delete().eq('challengeId', challengeId)
+        await supabase.from('Hint').delete().eq('challengeId', challengeId)
+
+        if(flagData.length) {
+            await supabase.from('Flag').insert(
+                flagData.map(f => ({ challengeId, ...f }))
+            )
+        }
+
+        if(hintData.length) {
+            await supabase.from('Hint').insert(
+                hintData.map(h => ({ challengeId, ...h }))
+            )
+        }
 
         if(existing && typeof existing.points === 'number') {
             const delta = pointsValue - existing.points
             if(delta !== 0) {
-                await prisma.solve.updateMany({
-                    where: { challengeId },
-                    data: { points: pointsValue }
-                })
-                const solves = await prisma.solve.findMany({
-                    where: { challengeId },
-                    select: { userId: true, teamId: true }
-                })
-                const affectedUserIds = Array.from(new Set(solves.map(s => s.userId)))
-                const affectedTeamIds = Array.from(new Set(solves.map(s => s.teamId).filter((t): t is number => !!t)))
-                for(const uid of affectedUserIds) {
-                    await prisma.user.update({ where: { id: uid }, data: { score: { increment: delta } } })
+                const { data: solves } = await supabase
+                    .from('Solve')
+                    .select('userId, teamId')
+                    .eq('challengeId', challengeId)
+
+                const affectedUserIds = Array.from(new Set(solves?.map(s => s.userId) || []))
+                const affectedTeamIds = Array.from(new Set(solves?.map(s => s.teamId).filter(t => !!t) || []))
+
+                for(const userId of affectedUserIds) {
+                    const { data: user } = await supabase
+                        .from('User')
+                        .select('score')
+                        .eq('id', userId)
+                        .single()
+
+                    if(user) {
+                        await supabase
+                            .from('User')
+                            .update({ score: (user.score || 0) + delta })
+                            .eq('id', userId)
+                    }
                 }
-                for(const tid of affectedTeamIds) {
-                    const members = await prisma.teamMember.findMany({
-                        where: { teamId: tid },
-                        select: { user: { select: { score: true } } }
-                    })
-                    const teamScore = members.reduce((acc, m) => acc + (m.user?.score ?? 0), 0)
-                    await prisma.team.update({ where: { id: tid }, data: { score: teamScore } })
+
+                for(const teamId of affectedTeamIds) {
+                    const { data: members } = await supabase
+                        .from('TeamMember')
+                        .select('user:User(score)')
+                        .eq('teamId', teamId)
+
+                    const teamScore = members?.reduce((acc, m) => {
+                        const memberUser = m.user as unknown as {score: number}
+                        return acc + ((memberUser?.score) || 0)
+                    }, 0) || 0
+                    await supabase
+                        .from('Team')
+                        .update({ score: teamScore })
+                        .eq('id', teamId)
                 }
             }
         }
 
-        return NextResponse.json({
-            id: updatedChallenge.id,
-            title: updatedChallenge.title,
-            description: updatedChallenge.description,
-            category: updatedChallenge.category,
-            points: updatedChallenge.points,
-            type: updatedChallenge.type,
-            state: updatedChallenge.state,
-            tags: updatedChallenge.tags,
-            createdAt: updatedChallenge.createdAt,
-            flags: updatedChallenge.flags.map((f) => ({ content: f.content, type: f.type })),
-            hints: updatedChallenge.hints.map((h) => ({ content: h.content, cost: h.cost })),
-            files: [],
-        }, { status: 200 })
+        const { data: retrievedFlags } = await supabase
+            .from('Flag')
+            .select('content, type')
+            .eq('challengeId', challengeId)
+
+        const { data: retrievedHints } = await supabase
+            .from('Hint')
+            .select('content, cost')
+            .eq('challengeId', challengeId)
+
+        return successResponse({
+            id: updated.id,
+            title: updated.title,
+            description: updated.description,
+            category: updated.category,
+            points: updated.points,
+            type: updated.type,
+            state: updated.state,
+            tags: updated.tags,
+            createdAt: updated.createdAt,
+            flags: retrievedFlags || [],
+            hints: retrievedHints || [],
+            files: []
+        })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }
+
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     try {
-        const cookieHeader = request.headers.get('cookie')
-        const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        let payload
-        try {
-            payload = verifyJWT(tokenMatch[1])
-        } catch {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-        if(payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const profile = await getCurrentUserProfile()
+        if(profile.role !== 'ADMIN') return forbiddenResponse()
 
         const challengeId = parseInt(id)
-        if(isNaN(challengeId)) return NextResponse.json({ error: 'Invalid challenge ID' }, { status: 400 })
+        if(isNaN(challengeId)) return validationError('Invalid challenge ID')
 
-        await prisma.challenge.delete({
-            where: { id: challengeId },
-        })
+        const supabase = await createServerSupabaseClient()
+        const { error } = await supabase
+            .from('Challenge')
+            .delete()
+            .eq('id', challengeId)
 
-        return NextResponse.json({ success: true, message: 'Challenge deleted successfully' }, { status: 200 })
+        if(error) return notFoundResponse('Challenge not found')
+
+        return successResponse({ message: 'Challenge deleted successfully' })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }

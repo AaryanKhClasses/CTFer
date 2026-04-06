@@ -1,35 +1,54 @@
-import { verifyJWT } from '@/lib/jwt'
-import prisma from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { successResponse, errorResponse } from '@/lib/api-response'
 
-export async function GET(request: Request) {
-    const cookie = request.headers.get('cookie')
-    if(!cookie) return NextResponse.json({ authenticated: false })
-    
-    const match = cookie.match(/auth=([^;]+)/)
-    if(!match) return NextResponse.json({ authenticated: false })
-
+export async function GET() {
     try {
-        const payload = verifyJWT(match[1])
-        const userId = parseInt(payload.sub as string)
+        const supabase = await createServerSupabaseClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true, role: true, username: true, teamMember: { select: { teamId: true, team: { select: { id: true, name: true } } } } }
+        if(authError || !user) return successResponse({ authenticated: false })
+
+        const { data: profile, error: profileError } = await supabase
+            .from('User')
+            .select('id, username, role, score, active, hidden, createdAt')
+            .eq('id', user.id)
+            .single()
+
+        if(profileError) {
+            return successResponse({
+                authenticated: true,
+                user: {
+                    id: user.id,
+                    username: (user.user_metadata as any)?.username || user.email?.split('@')[0] || 'user',
+                    email: user.email,
+                    role: 'PLAYER',
+                    score: 0,
+                    active: true,
+                    team: null
+                }
+            })
+        }
+
+        const { data: teamData } = await supabase
+            .from('TeamMember')
+            .select('team:Team(id, name)')
+            .eq('userId', user.id)
+            .single()
+
+        return successResponse({
+            authenticated: true,
+            user: {
+                id: profile.id,
+                username: profile.username,
+                email: user.email,
+                role: profile.role,
+                score: profile.score,
+                active: profile.active,
+                team: teamData?.team || null
+            }
         })
-
-        if(!user) return NextResponse.json({ authenticated: false })
-
-        return NextResponse.json({ 
-            authenticated: true, 
-            user: { 
-                id: user.id, 
-                role: user.role,
-                username: user.username,
-                team: user.teamMember ? user.teamMember.team : null 
-            } 
-        })
-    } catch {
-        return NextResponse.json({ authenticated: false })
+    } catch(err) {
+        console.error(err)
+        return errorResponse('Internal Server Error', 500)
     }
 }

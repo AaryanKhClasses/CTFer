@@ -11,8 +11,8 @@ type TeamData = {
     score: number
     createdAt: string
     hidden: boolean
-    members: { id: number; username: string; score: number }[]
-    solves: { id: number; title: string; points: number; solvedAt: string }[]
+    members: { id: number, username: string, score: number }[]
+    solves: { id: number, title: string, points: number, solvedAt: string }[]
     stats: {
         totalSubmissions: number
         correctSubmissions: number
@@ -40,7 +40,7 @@ export default function YourTeamPage() {
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
-        fetch('/api/teams/my-team', { credentials: 'include' })
+        fetch('/api/teams/my-team')
             .then(res => res.json())
             .then(data => {
                 setHasTeam(data.hasTeam)
@@ -67,7 +67,6 @@ export default function YourTeamPage() {
             const response = await fetch('/api/teams', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify({
                     action: formState.action,
                     teamName: formState.teamName,
@@ -92,7 +91,7 @@ export default function YourTeamPage() {
                 timeout: 5000,
             })
 
-            const teamRes = await fetch('/api/teams/my-team', { credentials: 'include' })
+            const teamRes = await fetch('/api/teams/my-team')
             const teamRes_data = await teamRes.json()
             setHasTeam(teamRes_data.hasTeam)
             if(teamRes_data.hasTeam) setTeamData(teamRes_data.team)

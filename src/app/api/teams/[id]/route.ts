@@ -1,29 +1,32 @@
-import prisma from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { errorResponse, notFoundResponse, successResponse, validationError } from '@/lib/api-response'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     try {
         const teamId = parseInt(id)
-        if(isNaN(teamId)) return NextResponse.json({ error: 'Invalid team ID' }, { status: 400 })
+        if(isNaN(teamId)) return validationError('Invalid team ID')
 
-        const team = await prisma.team.findUnique({
-            where: { id: teamId, hidden: false },
-            select: { id: true, name: true, score: true, createdAt: true, hidden: true }
-        })
+        const supabase = await createServerSupabaseClient()
+        const { data: team } = await supabase
+            .from('Team')
+            .select('id, name, score, createdAt, hidden')
+            .eq('id', teamId)
+            .eq('hidden', false)
+            .single()
 
-        if(!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+        if(!team) return notFoundResponse('Team not found')
 
-        return NextResponse.json({
+        return successResponse({
             id: team.id,
             name: team.name,
             score: team.score,
             createdAt: team.createdAt,
-            hidden: team.hidden,
+            hidden: team.hidden
         })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }
 
@@ -31,24 +34,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params
     try {
         const teamId = parseInt(id)
-        if(isNaN(teamId)) return NextResponse.json({ error: 'Invalid team ID' }, { status: 400 })
-        const team = await prisma.team.findUnique({ where: { id: teamId } })
-        if(!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+        if(isNaN(teamId)) return validationError('Invalid team ID')
 
-        const updatedTeam = await prisma.team.update({
-            where: { id: teamId },
-            data: { hidden: !team.hidden }
-        })
-        if(!updatedTeam) return NextResponse.json({ error: 'Failed to update team' }, { status: 500 })
-        return NextResponse.json({
-            id: updatedTeam.id,
-            name: updatedTeam.name,
-            score: updatedTeam.score,
-            createdAt: updatedTeam.createdAt,
-            hidden: updatedTeam.hidden,
+        const supabase = await createServerSupabaseClient()
+        const { data: team } = await supabase
+            .from('Team')
+            .select('hidden')
+            .eq('id', teamId)
+            .single()
+
+        if(!team) return notFoundResponse('Team not found')
+
+        const { data: updated } = await supabase
+            .from('Team')
+            .update({ hidden: !team.hidden })
+            .eq('id', teamId)
+            .select('id, name, score, createdAt, hidden')
+            .single()
+
+        if(!updated) return errorResponse('Failed to update team', 500)
+
+        return successResponse({
+            id: updated.id,
+            name: updated.name,
+            score: updated.score,
+            createdAt: updated.createdAt,
+            hidden: updated.hidden
         })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }

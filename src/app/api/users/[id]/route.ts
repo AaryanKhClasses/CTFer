@@ -1,40 +1,34 @@
-import prisma from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { errorResponse, notFoundResponse, successResponse } from '@/lib/api-response'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     try {
-        const userId = parseInt(id)
-        if(isNaN(userId)) return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
+        const userId = id
 
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                teamMember: {
-                    select: { team: { select: { id: true, name: true, score: true } } }
-                },
-                solves: {
-                    select: {
-                        challenge: { select: { id: true, title: true, points: true } },
-                        points: true,
-                        solvedAt: true
-                    },
-                }
-            }
-        })
+        const supabase = await createServerSupabaseClient()
+        const { data: user } = await supabase
+            .from('User')
+            .select('id, username, score, role, createdAt, active, hidden, TeamMember(team:Team(id, name, score)), Solve(challenge:Challenge(id, title, points), points, solvedAt)')
+            .eq('id', userId)
+            .single()
 
-        if(!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        if(!user) return notFoundResponse('User not found')
 
-        return NextResponse.json({
-            id: user.id,
-            username: user.username,
-            score: user.score,
-            role: user.role,
-            createdAt: user.createdAt,
-            active: user.active,
-            hidden: user.hidden,
-            teamName: user.teamMember?.team?.name ?? null,
-            solves: (user.solves || []).map(s => ({
+        const userData = user as any
+        const teamMember = userData.TeamMember as any[]
+        const userSolves = userData.Solve as any[]
+
+        return successResponse({
+            id: userData.id,
+            username: userData.username,
+            score: userData.score,
+            role: userData.role,
+            createdAt: userData.createdAt,
+            active: userData.active,
+            hidden: userData.hidden,
+            teamName: teamMember && teamMember.length > 0 ? teamMember[0].team?.name : null,
+            solves: userSolves.map(s => ({
                 id: s.challenge.id,
                 title: s.challenge.title,
                 points: s.points,
@@ -43,60 +37,79 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     try {
-        const userId = parseInt(id)
-        if(isNaN(userId)) return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
-        const user = await prisma.user.findUnique({ where: { id: userId } })
-        if(!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-        
-        const deletedUser = await prisma.user.update({ where: { id: userId }, data: { active: false } })
-        if(!deletedUser) return NextResponse.json({ error: 'Failed to deactivate user' }, { status: 500 })
+        const userId = id
 
-        return NextResponse.json({
-            id: deletedUser.id,
-            username: deletedUser.username,
-            score: deletedUser.score,
-            role: deletedUser.role,
-            createdAt: deletedUser.createdAt,
-            active: deletedUser.active,
-            hidden: deletedUser.hidden,
+        const supabase = await createServerSupabaseClient()
+        const { data: user } = await supabase
+            .from('User')
+            .select('id, active')
+            .eq('id', userId)
+            .single()
+        if(!user) return notFoundResponse('User not found')
+
+        const { data: updated } = await supabase
+            .from('User')
+            .update({ active: false })
+            .eq('id', userId)
+            .select('id, username, score, role, createdAt, active, hidden')
+            .single()
+        if(!updated) return errorResponse('Failed to deactivate user', 500)
+
+        return successResponse({
+            id: updated.id,
+            username: updated.username,
+            score: updated.score,
+            role: updated.role,
+            createdAt: updated.createdAt,
+            active: updated.active,
+            hidden: updated.hidden
         })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     try {
-        const userId = parseInt(id)
-        if(isNaN(userId)) return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
-        const user = await prisma.user.findUnique({ where: { id: userId } })
-        if(!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        const userId = id
 
-        const updatedUser = await prisma.user.update({
-            where: { id: userId },
-            data: { hidden: !user.hidden }
-        })
-        if(!updatedUser) return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
-        return NextResponse.json({
-            id: updatedUser.id,
-            username: updatedUser.username,
-            score: updatedUser.score,
-            role: updatedUser.role,
-            createdAt: updatedUser.createdAt,
-            active: updatedUser.active,
-            hidden: updatedUser.hidden,
+        const supabase = await createServerSupabaseClient()
+        const { data: user } = await supabase
+            .from('User')
+            .select('hidden')
+            .eq('id', userId)
+            .single()
+        if(!user) return notFoundResponse('User not found')
+
+        const { data: updated } = await supabase
+            .from('User')
+            .update({ hidden: !user.hidden })
+            .eq('id', userId)
+            .select('id, username, score, role, createdAt, active, hidden')
+            .single()
+
+        if(!updated) return errorResponse('Failed to update user', 500)
+
+        return successResponse({
+            id: updated.id,
+            username: updated.username,
+            score: updated.score,
+            role: updated.role,
+            createdAt: updated.createdAt,
+            active: updated.active,
+            hidden: updated.hidden
         })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }

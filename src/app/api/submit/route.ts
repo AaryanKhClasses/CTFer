@@ -1,123 +1,136 @@
-import prisma from '@/lib/db'
-import { verifyJWT } from '@/lib/jwt'
-import { NextResponse } from 'next/server'
+import { errorResponse, forbiddenResponse, successResponse, unauthorizedResponse, validationError } from '@/lib/api-response'
+import { getCurrentUser } from '@/lib/auth'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
-export async function GET(request: Request) {
+export async function GET() {
     try {
-        const cookieHeader = request.headers.get('cookie')
-        const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        let payload
-        try {
-            payload = verifyJWT(tokenMatch[1])
-        } catch {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
+        const profile = await getCurrentUser()
+        if(!profile) return unauthorizedResponse()
 
-        if(payload.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        const submissions = await prisma.submission.findMany({
-            where: {},
-            select: {
-                id: true,
-                user: { select: { username: true } },
-                team: { select: { name: true } },
-                challenge: { select: { title: true } },
-                submitted: true,
-                correct: true,
-                submittedAt: true,
-            }
-        })
-        return NextResponse.json(
-            submissions.map(submission => ({
-                id: submission.id,
-                username: submission.user?.username,
-                teamName: submission.team?.name,
-                challengeTitle: submission.challenge?.title,
-                submitted: submission.submitted,
-                correct: submission.correct,
-                submittedAt: submission.submittedAt,
-            }))
-        )
+        const superbaseClient = await createServerSupabaseClient()
+        const { data: userProfiler } = await superbaseClient
+            .from('User')
+            .select('role')
+            .eq('id', profile.id)
+            .single()
+
+        if(userProfiler?.role !== 'ADMIN') return forbiddenResponse()
+
+        const { data: submissions } = await superbaseClient
+            .from('Submission')
+            .select('id, userId, teamId, challengeId, submitted, correct, submittedAt, user:User(username), team:Team(name), challenge:Challenge(title)')
+
+        const mapped = submissions?.map((sub: any) => ({
+            id: sub.id,
+            username: sub.user?.username,
+            teamName: sub.team?.name,
+            challengeTitle: sub.challenge?.title,
+            submitted: sub.submitted,
+            correct: sub.correct,
+            submittedAt: sub.submittedAt
+        })) || []
+
+        return successResponse(mapped)
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }
 
 export async function POST(request: Request) {
     const { challengeId, flag } = await request.json()
-    if(!challengeId) return NextResponse.json({ success: false, message: 'Invalid Challenge.' }, { status: 400 })
-    if(!flag) return NextResponse.json({ success: false, message: 'Flag cannot be empty.' }, { status: 400 })
+    if(!challengeId) return validationError('Invalid Challenge.')
+    if(!flag) return validationError('Flag cannot be empty.')
 
     try {
-        const cookieHeader = request.headers.get('cookie')
-        const tokenMatch = cookieHeader?.match(/auth=([^;]+)/)
-        if(!tokenMatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        let payload
-        try {
-            payload = verifyJWT(tokenMatch[1])
-        } catch {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-        const userId = Number(payload.sub)
-        if(!Number.isInteger(userId)) return NextResponse.json({ success: false, message: 'Invalid user.' }, { status: 400 })
-        const teamMember = await prisma.teamMember.findUnique({
-            where: { userId },
-            select: { teamId: true }
-        })
+        const supabase = await createServerSupabaseClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if(!user) return unauthorizedResponse()
+
+        const { data: teamMember } = await supabase
+            .from('TeamMember')
+            .select('teamId')
+            .eq('userId', user.id)
+            .single()
+
         const teamId = teamMember?.teamId ?? null
-        const challenge = await prisma.challenge.findUnique({
-            where: { id: challengeId },
-            select: { points: true, flags: { select: { content: true, type: true } } }
-        })
-        if(!challenge) return NextResponse.json({ success: false, message: 'Challenge not found.' }, { status: 404 })
-        const isCorrect = challenge.flags.some((f) => {
+
+        const { data: challenge } = await supabase
+            .from('Challenge')
+            .select('points, Flag(content, type)')
+            .eq('id', challengeId)
+            .single()
+
+        if(!challenge) return errorResponse('Challenge not found.', 404)
+
+        const isCorrect = challenge.Flag.some(f => {
             if(f.type === 'CASE_INSENSITIVE') return f.content.toLowerCase() === flag.toLowerCase()
             else return f.content === flag
         })
 
-        const submission = await prisma.submission.create({
-            data: {
-                userId: userId,
-                teamId: teamId ?? undefined,
+        await supabase
+            .from('Submission')
+            .insert({
+                userId: user.id,
+                teamId: teamId || null,
                 challengeId: challengeId,
                 submitted: flag,
-                correct: isCorrect,
-            }
-        })
-        if(!submission) return NextResponse.json({ success: false, message: 'Could not record submission.' }, { status: 500 })
-        if(!isCorrect) return NextResponse.json({ success: false, message: 'Incorrect flag.' }, { status: 200 })
-        const existingSolve = await prisma.solve.findFirst({
-            where: {
-                OR: [ { userId }, { teamId } ],
-                challengeId: challengeId,
-            }
-        })
-        if(existingSolve) return NextResponse.json({ success: true, message: 'Correct flag!' })
-        const solve = await prisma.solve.create({
-            data: {
-                userId: userId,
-                teamId: teamId ?? undefined,
+                correct: isCorrect
+            })
+
+        if(!isCorrect) {
+            return errorResponse('Incorrect flag.', 200)
+        }
+
+        const { data: existingSolve } = await supabase
+            .from('Solve')
+            .select('id')
+            .or(`userId.eq.${user.id},teamId.eq.${teamId || -1}`)
+            .eq('challengeId', challengeId)
+            .single()
+
+        if(existingSolve) return successResponse({ message: 'Correct flag!' })
+
+        await supabase
+            .from('Solve')
+            .insert({
+                userId: user.id,
+                teamId: teamId || null,
                 challengeId: challengeId,
                 points: challenge.points
-            }
-        })
-        if(!solve) return NextResponse.json({ success: false, message: 'Could not record solve.' }, { status: 500 })
-        await prisma.user.update({
-            where: { id: userId },
-            data: { score: { increment: challenge.points } }
-        })
-        if(teamId) {
-            const members = await prisma.teamMember.findMany({
-                where: { teamId },
-                select: { user: { select: { score: true } } }
             })
-            const teamScore = members.reduce((acc, m) => acc + (m.user?.score ?? 0), 0)
-            await prisma.team.update({ where: { id: teamId }, data: { score: teamScore } })
+
+        const { data: userProfile } = await supabase
+            .from('User')
+            .select('score')
+            .eq('id', user.id)
+            .single()
+
+        if(userProfile) {
+            await supabase
+                .from('User')
+                .update({ score: (userProfile.score || 0) + challenge.points })
+                .eq('id', user.id)
         }
-        return NextResponse.json({ success: true, message: 'Correct flag!' })
+
+        if(teamId) {
+            const { data: members } = await supabase
+                .from('TeamMember')
+                .select('user:User(score)')
+                .eq('teamId', teamId)
+
+            const teamScore = members?.reduce((acc, m: any) => {
+                const memberUser = m.user as unknown as {score: number}
+                return acc + ((memberUser?.score) || 0)
+            }, 0) || 0
+            await supabase
+                .from('Team')
+                .update({ score: teamScore })
+                .eq('id', teamId)
+        }
+        return successResponse({ message: 'Correct flag!' })
     } catch(err) {
         console.error(err)
-        return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 })
+        return errorResponse('Internal Server Error', 500)
     }
 }

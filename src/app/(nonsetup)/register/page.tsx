@@ -1,7 +1,7 @@
 'use client'
 
 import { addToast, Button, Form, Input, Link } from '@heroui/react'
-import { CircleUser, KeyRound, Mail } from 'lucide-react'
+import { KeyRound, Mail } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function RegisterPage() {
@@ -13,7 +13,6 @@ export default function RegisterPage() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            credentials: 'include',
             body: JSON.stringify({
                 email: formData.get('email'),
                 username: formData.get('username'),
@@ -34,21 +33,23 @@ export default function RegisterPage() {
     }
 
     useEffect(() => {
-        fetch('/api/me', { credentials: 'include' })
+        fetch('/api/me')
         .then(res => res.json())
         .then(data => {
             if(data.authenticated) window.location.href = '/'
         })
     }, [])
 
-    return <div className='flex flex-col items-center justify-center h-screen'>
+    return <div className='flex flex-col items-center justify-center min-h-screen'>
         <h1 className='text-4xl font-bold mb-[10vh]'>Register</h1>
-        <Form className='p-10 min-h-[50vh] flex justify-center items-center bg-[#1d1f1f] rounded-lg' onSubmit={onSubmit}>
+        <Form className='p-10 min-h-[60vh] flex justify-center items-center bg-[#1d1f1f] rounded-lg' onSubmit={onSubmit}>
             <Input isRequired name='email' className='w-[35vw]' startContent={<Mail />} placeholder='Enter email' label='Email' labelPlacement='outside' type='email' />
-            <Input isRequired name='username' className='w-[35vw]' startContent={<CircleUser />} placeholder='Enter username' label='Username' labelPlacement='outside' />
+            <Input isRequired name='username' className='w-[35vw]' startContent={<Mail />} placeholder='Enter username' label='Username' labelPlacement='outside' />
             <Input isRequired name='password' className='w-[35vw]' startContent={<KeyRound />} placeholder='Enter password' label='Password' labelPlacement='outside' type='password' />
             <Button className='w-full mt-4' variant='solid' color='default' type='submit'>Register</Button>
-            <Link href='/login' color='foreground'>Already have an account?</Link>
+            <div className='flex flex-row pt-3 justify-center w-full items-center'>
+                <Link href='/login' color='foreground'>Already have an account?</Link>
+            </div>
         </Form>
     </div>
 }
